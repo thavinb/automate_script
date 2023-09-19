@@ -24,27 +24,31 @@ DIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR"  ]]; then DIR="$PWD"; fi
 
 usage() {
-    echo "This script find all fastq files in directory and mapping them to specified reference genome.
-The reference genome is expected to come with their index from bwa.
-prerequisite programs:
-    parallel
-    bwa
-    samtools
+    echo "USAGE: $0 [-r] [-t]
 
-    -r      path to reference genome.
-            Index is expected to be in the same path.
-    -t      Number of threads to pass to each command.
-            default: 16
+DESCRIPTION
+    This script find all fastq files in current directory and mapping them to specified reference genome.
+    The reference genome is expected to come with their index from bwa.
+
+    prerequisite programs:
+        parallel
+        bwa
+        samtools
+
+        -r      path to reference genome.
+                Index is expected to be in the same path.
+        -t      Number of threads to pass to each command.
+                default: 16
+
     " 1>&2 ;
 }
 
 help() {
     usage
+    exit 65
 }
 
-#path to call main.nf script outside its directory
-path=$(dirname $0)
-while getopts "r:t::" o;
+while getopts "r:t::h" o;
 do
     case $o in
         r) REFERENCE=$OPTARG ;;

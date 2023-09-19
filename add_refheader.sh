@@ -19,12 +19,51 @@
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# This script assumes that all vcf in directory
-# end with ".vcf.gz" and properly gzipped.
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR"  ]]; then DIR="$PWD"; fi
+
+usage() {
+    echo "USAGE: $0 [-o]
+
+DESCRIPTION
+    This script find all files ending with [.vcf.gz] in current directory and adding the reference header in them.
+    Results vcf with added header line also get index by tabix.
+    The output will be placed in <timestamp>_vcf_wRef directory unless specified otherwise through -o by user.
+
+    prerequisite programs:
+        parallel
+        bgzip
+        tabix
+
+        -o      output for vcf with header
+
+    " 1>&2 ;
+}
+
+help() {
+    usage
+    exit 65
+}
+
 timestamp=$(date +%y%m%d%H%M%S)
+
+while getopts "o::h" o;
+do
+    case $o in
+        o) OUTDIR=$OPTARG ;;
+        h) help ;;
+    esac
+done;
+shift $((OPTIND - 1))
+
+
+
 
 # line to add in the header of vcf
 reference="##reference=hg19.fasta"
+
+# This script assumes that all vcf in directory
+# end with ".vcf.gz" and properly gzipped.
 
 # getting list of basename of files suffix with ".vcf.gz"
 # Abort if no file found.
@@ -38,17 +77,30 @@ then
     exit 65
 fi
 
-# create new directory for new vcf
-mkdir ${timestamp}_vcf_wRef
-echo "[INFO]: Result directory is ${timestamp}_vcf_wRef."
+# print result dir for this run
+if [ -n "$OUTDIR" ]
+then
+   if [ ! -d "$OUTDIR" ]
+   then
+        mkdir $OUTDIR
+   fi
+   outdir=${OUTDIR}
+else
+   mkdir ${timestamp}_vcf_wRef
+   outdir=${timestamp}_vcf_wRef
+fi;
+echo "[INFO]: Result directory is ${outdir}"
 
 # loop through list of vcf file
 # and add reference line to the header
 cat .addref.${timestamp}.tmp | \
-    parallel -j 1 --joblog ${timestamp}_vcf_wRef/filelog.log "
-        zcat {}.vcf.gz | sed '/^#CHROM*/i \\${reference}' > \\${timestamp}_vcf_wRef/{}_wRef.vcf ;
-        bgzip -@ 16 \\${timestamp}_vcf_wRef/{}_wRef.vcf ;
-        tabix -p vcf \\${timestamp}_vcf_wRef/{}_wRef.vcf.gz ;"
+    parallel -j 1 --joblog ${outdir}/filelog.log "
+        zcat {}.vcf.gz | sed '/^#CHROM*/i \\${reference}' > \\${outdir}/{}_wRef.vcf ;
+        bgzip -@ 16 \\${outdir}/{}_wRef.vcf ;
+        tabix -p vcf \\${outdir}/{}_wRef.vcf.gz ;"
 
 # cleanup
-mv .addref.${timestamp}.tmp ${timestamp}_vcf_wRef
+mv .addref.${timestamp}.tmp ${outdir}
+
+
+
